@@ -1,162 +1,89 @@
--- AUTO PARRY - SÓ DEFENDE QUANDO O ATAQUE ESTIVER GRUDADO
-print("🔥 AUTO PARRY CURTA DISTÂNCIA CARREGADO")
+-- AUTO PARRY - VERSÃO ULTRALEVE (0% de impacto no FPS)
+print("🔥 Carregando versão ULTRALEVE...")
 
 local player = game.Players.LocalPlayer
-local runService = game:GetService("RunService")
 local virtualInput = game:GetService("VirtualInputManager")
 local userInputService = game:GetService("UserInputService")
 
--- CONFIGURAÇÕES - DISTÂNCIA BEM CURTA!
-local distanciaParry = 8  -- Só defende quando estiver muito perto (grudado)
+-- CONFIGURAÇÕES
+local distanciaParry = 8
 local teclaParry = Enum.KeyCode.F
-local intervaloParry = 0.2
 local ultimoParry = 0
-local anguloMaximo = 60  -- Ângulo mais permissivo
+local intervaloParry = 0.3
 
--- Criar interface minimalista
+-- Interface MÍNIMA (só um texto)
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoParryCurto"
+screenGui.Name = "AutoParryUltraLeve"
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 180, 0, 60)
-frame.Position = UDim2.new(0, 10, 0.5, -30)
-frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-frame.BackgroundTransparency = 0.5
-frame.BorderSizePixel = 0
-frame.Active = true
-frame.Draggable = true
-frame.Parent = screenGui
+local texto = Instance.new("TextLabel")
+texto.Size = UDim2.new(0, 80, 0, 20)
+texto.Position = UDim2.new(0, 5, 0, 5)
+texto.Text = "🟢"
+texto.TextColor3 = Color3.fromRGB(0, 255, 0)
+texto.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+texto.BackgroundTransparency = 0.5
+texto.Font = Enum.Font.GothamBold
+texto.TextSize = 16
+texto.Parent = screenGui
 
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, 0, 1, 0)
-statusLabel.Text = "⚡ AUTO PARRY\nATIVADO"
-statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Font = Enum.Font.GothamBold
-statusLabel.TextSize = 12
-statusLabel.Parent = frame
-
-local distanciaLabel = Instance.new("TextLabel")
-distanciaLabel.Size = UDim2.new(1, 0, 0, 15)
-distanciaLabel.Position = UDim2.new(0, 0, 1, -15)
-distanciaLabel.Text = "Distância: " .. distanciaParry
-distanciaLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-distanciaLabel.BackgroundTransparency = 1
-distanciaLabel.Font = Enum.Font.Gotham
-distanciaLabel.TextSize = 9
-distanciaLabel.Parent = frame
-
--- FUNÇÃO PARA VERIFICAR SE O OBJETO ESTÁ VINDO EM DIREÇÃO AO JOGADOR
-local function estaVindoEmDirecao(obj, jogadorPos)
-    if not obj:IsA("BasePart") then return false end
+-- FUNÇÃO SIMPLES (roda poucas vezes por segundo)
+local function verificarDefesa()
+    task.wait(0.2) -- Espera 200ms entre verificações (leve!)
     
-    -- Se a velocidade for muito baixa, ignora
-    if obj.Velocity.Magnitude < 1 then return false end
-    
-    local direcaoObjeto = obj.Velocity.Unit
-    local direcaoJogador = (jogadorPos - obj.Position).Unit
-    
-    -- Calcula o ângulo entre a direção do objeto e a direção do jogador
-    local dotProduct = direcaoObjeto:Dot(direcaoJogador)
-    local angulo = math.deg(math.acos(dotProduct))
-    
-    -- Se o ângulo for pequeno, está vindo em direção ao jogador
-    return angulo < anguloMaximo
-end
-
--- FUNÇÃO PARA VERIFICAR SE O OBJETO PERTENCE AO JOGADOR
-local function pertenceAoJogador(obj)
-    if not player.Character then return false end
-    return obj:IsDescendantOf(player.Character)
-end
-
--- FUNÇÃO PRINCIPAL DE DETECÇÃO - FOCADA EM DISTÂNCIA CURTA
-local function detectarAtaqueProximo()
-    if not player.Character then return nil, nil end
+    if not player.Character then return end
     
     local root = player.Character:FindFirstChild("HumanoidRootPart")
-    if not root then return nil, nil end
+    if not root then return end
     
     local jogadorPos = root.Position
-    local ataquePerigoso = nil
-    local menorDistancia = math.huge
     
-    -- Procura apenas por HighestEloPart
+    -- Procura apenas pelo objeto específico
     for _, obj in pairs(workspace:GetDescendants()) do
-        -- Ignora objetos do próprio jogador
-        if not pertenceAoJogador(obj) then
-            if obj.Name == "HighestEloPart" and obj:IsA("Part") then
-                -- Calcula distância
-                local distancia = (jogadorPos - obj.Position).Magnitude
-                
-                -- Só considera se estiver DENTRO da distância curta
-                if distancia < distanciaParry then
-                    -- Verifica se está vindo em direção ao jogador (opcional, pode remover se quiser)
-                    if estaVindoEmDirecao(obj, jogadorPos) then
-                        if distancia < menorDistancia then
-                            menorDistancia = distancia
-                            ataquePerigoso = obj
-                        end
-                    end
+        if obj.Name == "HighestEloPart" and obj:IsA("Part") then
+            -- Ignora se for do próprio jogador
+            if player.Character and obj:IsDescendantOf(player.Character) then
+                continue
+            end
+            
+            local distancia = (jogadorPos - obj.Position).Magnitude
+            
+            -- Se estiver muito perto E em movimento
+            if distancia < distanciaParry and obj.Velocity.Magnitude > 2 then
+                local agora = tick()
+                if agora - ultimoParry > intervaloParry then
+                    ultimoParry = agora
+                    
+                    -- Defende
+                    virtualInput:SendKeyEvent(true, teclaParry, false, game)
+                    task.wait(0.03)
+                    virtualInput:SendKeyEvent(false, teclaParry, false, game)
+                    
+                    texto.Text = "🔴"
+                    texto.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    task.wait(0.1)
+                    texto.Text = "🟢"
+                    texto.TextColor3 = Color3.fromRGB(0, 255, 0)
                 end
+                break
             end
         end
     end
-    
-    return ataquePerigoso, menorDistancia
 end
 
--- LOOP PRINCIPAL DE DEFESA
-runService.Heartbeat:Connect(function()
-    local ataque, distancia = detectarAtaqueProximo()
-    
-    if ataque then
-        -- Objeto muito próximo! Defende imediatamente
-        statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)  -- Vermelho (perigo!)
-        statusLabel.Text = string.format("⚡ DEFENDENDO!\n📏 %.1f", distancia)
-        
-        local agora = tick()
-        if agora - ultimoParry > intervaloParry then
-            ultimoParry = agora
-            
-            -- Pressiona F
-            virtualInput:SendKeyEvent(true, teclaParry, false, game)
-            task.wait(0.03)
-            virtualInput:SendKeyEvent(false, teclaParry, false, game)
-            
-            -- Feedback visual
-            frame.BackgroundColor3 = Color3.fromRGB(100, 0, 0)  -- Vermelho escuro
-            task.spawn(function()
-                task.wait(0.1)
-                frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            end)
-        end
-    else
-        -- Sem perigo próximo
-        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)  -- Verde
-        statusLabel.Text = "⚡ AUTO PARRY\nATIVADO"
-        frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+-- Loop principal (mais leve que Heartbeat)
+task.spawn(function()
+    while true do
+        verificarDefesa()
     end
 end)
 
--- FUNÇÃO PARA AJUSTAR DISTÂNCIA (teclas + e -)
+-- Tecla INSERT
 userInputService.InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.Insert then
-        frame.Visible = not frame.Visible
-    elseif input.KeyCode == Enum.KeyCode.Equals then  -- Tecla +
-        distanciaParry = math.min(20, distanciaParry + 1)
-        distanciaLabel.Text = "Distância: " .. distanciaParry
-        print("📏 Distância ajustada para: " .. distanciaParry)
-    elseif input.KeyCode == Enum.KeyCode.Minus then  -- Tecla -
-        distanciaParry = math.max(3, distanciaParry - 1)
-        distanciaLabel.Text = "Distância: " .. distanciaParry
-        print("📏 Distância ajustada para: " .. distanciaParry)
+        texto.Visible = not texto.Visible
     end
 end)
 
-print("✅ Auto Parry CURTA DISTÂNCIA carregado!")
-print("📏 Distância inicial: " .. distanciaParry)
-print("➕ Tecla + para aumentar distância")
-print("➖ Tecla - para diminuir distância")
-print("🔘 INSERT para esconder/mostrar")
+print("✅ Versão ULTRALEVE carregada!")
+print("🟢 Indicador verde no canto superior esquerdo")
